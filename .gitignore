@@ -155,3 +155,4 @@ test-results/
 scratch/
 tmp/
 *.local
+CLAUDE.md
