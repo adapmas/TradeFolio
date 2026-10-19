@@ -10,4 +10,7 @@
   <Folder Name="/src/Services/">
     <Project Path="src/Services/TradeService/TradeService.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Common.UnitTests/Common.UnitTests.csproj" />
+  </Folder>
 </Solution>
