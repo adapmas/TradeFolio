@@ -4,4 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
   </ItemGroup>
+  <ItemGroup>
+    <PackageVersion Include="Swashbuckle.AspNetCore" Version="10.3.0" />
+  </ItemGroup>
 </Project>
