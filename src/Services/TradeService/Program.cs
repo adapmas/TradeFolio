@@ -1,6 +1,14 @@
+using Microsoft.EntityFrameworkCore;
 using TradeFolio.Common.Errors;
+using TradeService.Infrastructure.Persistence;
+
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionString = builder.Configuration.GetConnectionString("TradeDb")
+    ?? throw new InvalidOperationException(
+        "Connection string 'TradeDb' is missing. Set the ConnectionStrings__TradeDb environment variable.");
+
+builder.Services.AddDbContext<TradeDbContext>(options => options.UseNpgsql(connectionString));
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
