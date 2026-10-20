@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TradeFolio.Common.Errors;
 using TradeService.Infrastructure.Persistence;
+using TradeService.Api;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -25,6 +26,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapHealthChecks("/health");
+app.MapInstrumentEndpoints();
 
 app.MapGet("/api/v1/ping", () => Results.Ok(new { service = serviceName, status = "ok" }))
    .WithName("Ping");

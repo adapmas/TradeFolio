@@ -20,6 +20,8 @@ public sealed class InstrumentConfiguration : IEntityTypeConfiguration<Instrumen
         builder.Property(x => x.Currency).HasColumnName("currency").HasMaxLength(3).IsRequired();
 
         builder.HasIndex(x => x.Symbol).IsUnique().HasDatabaseName("ux_instruments_symbol");
+
+        builder.HasData(InstrumentSeed.All);
     }
 }
 

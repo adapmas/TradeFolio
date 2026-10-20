@@ -142,6 +142,88 @@ namespace TradeService.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_instruments_symbol_uppercase", "symbol = upper(symbol)");
                         });
+
+                    b.HasData(
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000001"),
+                            Currency = "USD",
+                            Name = "Apple Inc.",
+                            Sector = "Technology",
+                            Symbol = "AAPL"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000002"),
+                            Currency = "USD",
+                            Name = "Microsoft Corporation",
+                            Sector = "Technology",
+                            Symbol = "MSFT"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000003"),
+                            Currency = "USD",
+                            Name = "NVIDIA Corporation",
+                            Sector = "Technology",
+                            Symbol = "NVDA"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000004"),
+                            Currency = "USD",
+                            Name = "Alphabet Inc.",
+                            Sector = "Communication Services",
+                            Symbol = "GOOGL"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000005"),
+                            Currency = "USD",
+                            Name = "Amazon.com Inc.",
+                            Sector = "Consumer Discretionary",
+                            Symbol = "AMZN"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000006"),
+                            Currency = "USD",
+                            Name = "Tesla Inc.",
+                            Sector = "Consumer Discretionary",
+                            Symbol = "TSLA"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000007"),
+                            Currency = "USD",
+                            Name = "JPMorgan Chase & Co.",
+                            Sector = "Financials",
+                            Symbol = "JPM"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000008"),
+                            Currency = "USD",
+                            Name = "Johnson & Johnson",
+                            Sector = "Health Care",
+                            Symbol = "JNJ"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000009"),
+                            Currency = "USD",
+                            Name = "Exxon Mobil Corporation",
+                            Sector = "Energy",
+                            Symbol = "XOM"
+                        },
+                        new
+                        {
+                            Id = new Guid("a0000000-0000-0000-0000-000000000010"),
+                            Currency = "USD",
+                            Name = "The Coca-Cola Company",
+                            Sector = "Consumer Staples",
+                            Symbol = "KO"
+                        });
                 });
 
             modelBuilder.Entity("TradeService.Infrastructure.Persistence.Trade", b =>
