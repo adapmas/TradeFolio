@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using TradeFolio.Common.Errors;
 using TradeService.Application;
+using TradeService.Domain;
 using TradeService.Infrastructure.Persistence;
 
 namespace TradeService.Api;
@@ -11,7 +12,9 @@ public sealed record TradeResponse(
     string Side,
     decimal Quantity,
     decimal Price,
-    DateTimeOffset ExecutedAt);
+    DateTimeOffset ExecutedAt,
+    decimal? CostBasis,
+    decimal? RealizedProfitLoss);
 
 public static class TradeEndpoints
 {
@@ -62,17 +65,24 @@ public static class TradeEndpoints
         }
 
         var side = Enum.Parse<TradeSide>(request.Side!.Trim(), ignoreCase: true);
-        if (side == TradeSide.Sell)
+        var command = new TradeCommand(userId, request.Symbol!, request.Quantity, request.Price, key);
+
+        TradeExecuted? executed;
+        try
+        {
+            executed = side == TradeSide.Buy
+                ? await executor.BuyAsync(command, ct)
+                : await executor.SellAsync(command, ct);
+        }
+        catch (InsufficientQuantityException ex)
         {
             return Problem(http, new ApiProblem(
-                "https://api.tradefolio.local/errors/not-implemented",
-                "SELL is not implemented yet",
-                501,
-                http.TraceIdentifier));
+                "https://api.tradefolio.local/errors/insufficient-quantity",
+                "Insufficient quantity",
+                422,
+                http.TraceIdentifier,
+                new Dictionary<string, string[]> { ["quantity"] = [ex.Message] }));
         }
-
-        var executed = await executor.BuyAsync(
-            new BuyCommand(userId, request.Symbol!, request.Quantity, request.Price, key), ct);
 
         if (executed is null)
         {
@@ -87,7 +97,9 @@ public static class TradeEndpoints
             executed.Side.ToString().ToUpperInvariant(),
             executed.Quantity,
             executed.Price,
-            executed.ExecutedAt);
+            executed.ExecutedAt,
+            executed.CostBasis,
+            executed.RealizedProfitLoss);
 
         return Results.Created($"/api/v1/trades/{response.Id}", response);
     }
