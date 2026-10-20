@@ -5,7 +5,7 @@ TradeFolio Progress
 Last updated: 20 October 2026
 
 Right now
-Working on: Task 1.5 (docs and tracking files). Next up: Phase 2, Task 2.1 (FIFO domain types).
+Working on: Task 3.2 (databasse constraints and indexes). Next up: Phase 3, Task 3.3 (Instrument seed data).
 
 Phase 1: Foundation
  1.1 Solution skeleton (global.json, solution, shared build settings, three projects)
@@ -13,7 +13,12 @@ Phase 1: Foundation
  1.3 TradeService runnable with Swagger, /health and environment config
  1.4 Shared error and pagination types, with unit tests
  1.5 Docs and tracking files (this file, requirements checklist, ADR 0001)
-Phases 2 to 12
+Phase 2: FIFO Accounting
+ 2.1 Build a Lot file and no reference of domain file to http or ef
+ 2.2 FIFO tests first, building unit tests for Trade function with failing tests, i.e., edge cases
+ 2.3 Build pure FIFO sell function so all of the tests pass
+ 2.4 Documentation of FIFO algorithm
+Phases 3 to 12
 Not started. See the build plan for the full task list.
 
 Decisions so far
