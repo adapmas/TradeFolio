@@ -5,4 +5,4 @@ public sealed record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSi
     public int TotalPages => PageSize <= 0 ? 0 : (TotalCount + PageSize - 1) / PageSize;
     public bool HasNext => Page < TotalPages;
     public bool HasPrevious => Page > 1;
-}dotnet
+}
