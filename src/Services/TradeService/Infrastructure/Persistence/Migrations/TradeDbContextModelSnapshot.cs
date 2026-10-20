@@ -49,7 +49,14 @@ namespace TradeService.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InstrumentId");
 
-                    b.ToTable("holdings", "trade");
+                    b.HasIndex("UserId", "InstrumentId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_holdings_user_id_instrument_id");
+
+                    b.ToTable("holdings", "trade", t =>
+                        {
+                            t.HasCheckConstraint("ck_holdings_quantity_non_negative", "quantity >= 0");
+                        });
                 });
 
             modelBuilder.Entity("TradeService.Infrastructure.Persistence.HoldingLot", b =>
@@ -80,9 +87,19 @@ namespace TradeService.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("HoldingId");
+                    b.HasIndex("HoldingId", "PurchasedAt")
+                        .HasDatabaseName("ix_holding_lots_holding_id_purchased_at");
 
-                    b.ToTable("holding_lots", "trade");
+                    b.ToTable("holding_lots", "trade", t =>
+                        {
+                            t.HasCheckConstraint("ck_holding_lots_original_positive", "original_quantity > 0");
+
+                            t.HasCheckConstraint("ck_holding_lots_price_positive", "purchase_price > 0");
+
+                            t.HasCheckConstraint("ck_holding_lots_remaining_non_negative", "remaining_quantity >= 0");
+
+                            t.HasCheckConstraint("ck_holding_lots_remaining_within_original", "remaining_quantity <= original_quantity");
+                        });
                 });
 
             modelBuilder.Entity("TradeService.Infrastructure.Persistence.Instrument", b =>
@@ -117,7 +134,14 @@ namespace TradeService.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("instruments", "trade");
+                    b.HasIndex("Symbol")
+                        .IsUnique()
+                        .HasDatabaseName("ux_instruments_symbol");
+
+                    b.ToTable("instruments", "trade", t =>
+                        {
+                            t.HasCheckConstraint("ck_instruments_symbol_uppercase", "symbol = upper(symbol)");
+                        });
                 });
 
             modelBuilder.Entity("TradeService.Infrastructure.Persistence.Trade", b =>
@@ -162,7 +186,25 @@ namespace TradeService.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("InstrumentId");
 
-                    b.ToTable("trades", "trade");
+                    b.HasIndex("UserId", "ExecutedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("ix_trades_user_id_executed_at");
+
+                    b.HasIndex("UserId", "IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("ux_trades_user_id_idempotency_key");
+
+                    b.HasIndex("UserId", "InstrumentId", "ExecutedAt")
+                        .HasDatabaseName("ix_trades_user_id_instrument_id_executed_at");
+
+                    b.ToTable("trades", "trade", t =>
+                        {
+                            t.HasCheckConstraint("ck_trades_price_positive", "price > 0");
+
+                            t.HasCheckConstraint("ck_trades_quantity_positive", "quantity > 0");
+
+                            t.HasCheckConstraint("ck_trades_side_valid", "side IN ('Buy', 'Sell')");
+                        });
                 });
 
             modelBuilder.Entity("TradeService.Infrastructure.Persistence.Holding", b =>
