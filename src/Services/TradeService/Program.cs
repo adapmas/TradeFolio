@@ -33,6 +33,7 @@ if (app.Environment.IsDevelopment())
 app.MapHealthChecks("/health");
 app.MapInstrumentEndpoints();
 app.MapTradeEndpoints();
+app.MapHoldingEndpoints();
 
 app.MapGet("/api/v1/ping", () => Results.Ok(new { service = serviceName, status = "ok" }))
    .WithName("Ping");
