@@ -52,8 +52,18 @@ public static class TradeEndpoints
                 http.TraceIdentifier));
         }
 
-        // TEMPORARY: task 3.7 makes this header required and handles repeated keys.
-        var key = string.IsNullOrWhiteSpace(idempotencyKey) ? Guid.NewGuid().ToString() : idempotencyKey.Trim();
+        // The Idempotency-Key header is required: it makes retries safe.
+        if (string.IsNullOrWhiteSpace(idempotencyKey))
+        {
+            return Problem(http, ApiProblem.Validation(
+                new Dictionary<string, string[]>
+                {
+                    ["Idempotency-Key"] = ["The Idempotency-Key header is required."]
+                },
+                http.TraceIdentifier));
+        }
+
+        var key = idempotencyKey.Trim();
         if (key.Length > MaxIdempotencyKeyLength)
         {
             return Problem(http, ApiProblem.Validation(
@@ -83,12 +93,23 @@ public static class TradeEndpoints
                 http.TraceIdentifier,
                 new Dictionary<string, string[]> { ["quantity"] = [ex.Message] }));
         }
+        catch (IdempotencyKeyReuseException)
+        {
+            return Problem(http, ApiProblem.Conflict(
+                "This Idempotency-Key was already used with a different request.",
+                http.TraceIdentifier));
+        }
 
         if (executed is null)
         {
             return Problem(http, ApiProblem.Validation(
                 new Dictionary<string, string[]> { ["symbol"] = ["Symbol is not a known instrument."] },
                 http.TraceIdentifier));
+        }
+
+        if (executed.IsReplay)
+        {
+            http.Response.Headers["Idempotency-Replayed"] = "true";
         }
 
         var response = new TradeResponse(

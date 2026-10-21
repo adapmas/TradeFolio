@@ -25,6 +25,8 @@ public sealed class Trade
     public decimal Price { get; set; }
     public DateTimeOffset ExecutedAt { get; set; }
     public string IdempotencyKey { get; set; } = string.Empty;
+    public string RequestHash { get; set; } = string.Empty;
+    public decimal? CostBasis { get; set; }
 }
 
 public sealed class Holding

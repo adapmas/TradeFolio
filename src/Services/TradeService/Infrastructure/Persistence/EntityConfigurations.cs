@@ -34,6 +34,7 @@ public sealed class TradeConfiguration : IEntityTypeConfiguration<Trade>
             t.HasCheckConstraint("ck_trades_quantity_positive", "quantity > 0");
             t.HasCheckConstraint("ck_trades_price_positive", "price > 0");
             t.HasCheckConstraint("ck_trades_side_valid", "side IN ('Buy', 'Sell')");
+            t.HasCheckConstraint("ck_trades_cost_basis_non_negative", "cost_basis IS NULL OR cost_basis >= 0");
         });
 
         builder.HasKey(x => x.Id);
@@ -45,6 +46,8 @@ public sealed class TradeConfiguration : IEntityTypeConfiguration<Trade>
         builder.Property(x => x.Price).HasColumnName("price").HasColumnType("numeric(18,6)").IsRequired();
         builder.Property(x => x.ExecutedAt).HasColumnName("executed_at").HasColumnType("timestamptz").IsRequired();
         builder.Property(x => x.IdempotencyKey).HasColumnName("idempotency_key").HasMaxLength(100).IsRequired();
+        builder.Property(x => x.RequestHash).HasColumnName("request_hash").HasMaxLength(64).IsRequired();
+        builder.Property(x => x.CostBasis).HasColumnName("cost_basis").HasColumnType("numeric(18,8)");
 
         builder.HasOne<Instrument>().WithMany().HasForeignKey(x => x.InstrumentId).OnDelete(DeleteBehavior.Restrict);
 

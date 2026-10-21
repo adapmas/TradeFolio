@@ -1,5 +1,6 @@
 using System.Data;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using TradeService.Domain;
 using TradeService.Infrastructure.Persistence;
 
@@ -20,23 +21,82 @@ public sealed record TradeExecuted(
     decimal Price,
     DateTimeOffset ExecutedAt,
     decimal? CostBasis = null,
-    decimal? RealizedProfitLoss = null);
+    decimal? RealizedProfitLoss = null,
+    bool IsReplay = false);
+
+/// <summary>The same Idempotency-Key was used earlier for a different request.</summary>
+public sealed class IdempotencyKeyReuseException(string key)
+    : Exception($"Idempotency-Key '{key}' was already used with a different request.")
+{
+    public string Key { get; } = key;
+}
 
 public interface ITradeExecutor
 {
-    /// <summary>Returns null if the symbol is not a known instrument.</summary>
+    /// <summary>
+    /// Returns null if the symbol is not a known instrument.
+    /// Throws IdempotencyKeyReuseException if the key was used for a different request.
+    /// </summary>
     Task<TradeExecuted?> BuyAsync(TradeCommand command, CancellationToken cancellationToken);
 
     /// <summary>
     /// Returns null if the symbol is not a known instrument.
     /// Throws InsufficientQuantityException if the user does not own enough shares.
+    /// Throws IdempotencyKeyReuseException if the key was used for a different request.
     /// </summary>
     Task<TradeExecuted?> SellAsync(TradeCommand command, CancellationToken cancellationToken);
 }
 
 public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
 {
-    public async Task<TradeExecuted?> BuyAsync(TradeCommand command, CancellationToken cancellationToken)
+    private const string IdempotencyIndexName = "ux_trades_user_id_idempotency_key";
+
+    public Task<TradeExecuted?> BuyAsync(TradeCommand command, CancellationToken cancellationToken) =>
+        ExecuteOnceAsync(command, TradeSide.Buy, BuyCoreAsync, cancellationToken);
+
+    public Task<TradeExecuted?> SellAsync(TradeCommand command, CancellationToken cancellationToken) =>
+        ExecuteOnceAsync(command, TradeSide.Sell, SellCoreAsync, cancellationToken);
+
+    /// <summary>
+    /// Wraps a trade with the idempotency rules: replay an earlier result for the same key
+    /// and request, reject the key if it was used for a different request.
+    /// </summary>
+    private async Task<TradeExecuted?> ExecuteOnceAsync(
+        TradeCommand command,
+        TradeSide side,
+        Func<TradeCommand, string, CancellationToken, Task<TradeExecuted?>> core,
+        CancellationToken cancellationToken)
+    {
+        var hash = RequestFingerprint.Compute(side, command.Symbol, command.Quantity, command.Price);
+
+        // Layer 1: an ordinary retry. The key was already used earlier.
+        var previous = await FindPreviousAsync(command, hash, cancellationToken);
+        if (previous is not null)
+        {
+            return previous;
+        }
+
+        try
+        {
+            return await core(command, hash, cancellationToken);
+        }
+        catch (DbUpdateException ex) when (IsIdempotencyKeyViolation(ex))
+        {
+            // Layer 3: a parallel request with the same key committed first and the
+            // unique index stopped this one. Its transaction is already rolled back.
+            db.ChangeTracker.Clear();
+            var winner = await FindPreviousAsync(command, hash, cancellationToken);
+            if (winner is null)
+            {
+                throw;
+            }
+
+            return winner;
+        }
+    }
+
+    private async Task<TradeExecuted?> BuyCoreAsync(
+        TradeCommand command, string requestHash, CancellationToken cancellationToken)
     {
         var symbol = Normalize(command.Symbol);
         var instrumentId = await FindInstrumentIdAsync(symbol, cancellationToken);
@@ -52,8 +112,6 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
             IsolationLevel.ReadCommitted, cancellationToken);
 
         // 1. Create the holding, or add to it if it already exists.
-        //    The unique index on (user_id, instrument_id) makes this safe when
-        //    two first BUYs arrive at the same moment.
         await db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO trade.holdings (id, user_id, instrument_id, quantity, updated_at)
             VALUES ({Guid.CreateVersion7()}, {command.UserId}, {instrumentId.Value}, {command.Quantity}, {now})
@@ -79,8 +137,9 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
             PurchasedAt = now
         });
 
-        // 3. The trade record itself.
-        var trade = NewTrade(command, instrumentId.Value, TradeSide.Buy, now);
+        // 3. The trade record itself. If a parallel request used the same key, the
+        //    unique index rejects this insert and everything above is rolled back.
+        var trade = NewTrade(command, instrumentId.Value, TradeSide.Buy, now, requestHash, costBasis: null);
         db.Trades.Add(trade);
 
         await db.SaveChangesAsync(cancellationToken);
@@ -89,7 +148,8 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
         return new TradeExecuted(trade.Id, symbol, trade.Side, trade.Quantity, trade.Price, trade.ExecutedAt);
     }
 
-    public async Task<TradeExecuted?> SellAsync(TradeCommand command, CancellationToken cancellationToken)
+    private async Task<TradeExecuted?> SellCoreAsync(
+        TradeCommand command, string requestHash, CancellationToken cancellationToken)
     {
         var symbol = Normalize(command.Symbol);
         var instrumentId = await FindInstrumentIdAsync(symbol, cancellationToken);
@@ -100,15 +160,12 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
 
         var now = DateTimeOffset.UtcNow;
 
-        // Step 1: Read Committed plus an explicit row lock (see ADR 0002 in task 4.5).
-        // If anything below throws, the transaction is rolled back and the lock released.
+        // Read Committed plus an explicit row lock (see ADR 0002 in task 4.5).
         await using var transaction = await db.Database.BeginTransactionAsync(
             IsolationLevel.ReadCommitted, cancellationToken);
 
-        // Steps 2 to 4: lock the holding row and read its quantity in ONE statement.
-        // If another request holds the lock, this waits until that request commits or
-        // rolls back, and then returns the UPDATED row. That is how two simultaneous
-        // sells cannot both spend the same shares.
+        // Lock the holding row and read its quantity in ONE statement.
+        // A competing request waits here until we commit or roll back, then reads the UPDATED row.
         var holding = (await db.Holdings
                 .FromSqlInterpolated($"""
                     SELECT * FROM trade.holdings
@@ -118,27 +175,33 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
                 .ToListAsync(cancellationToken))
             .SingleOrDefault();
 
-        // Step 5: reject if the user does not own enough (no holding means 0 owned).
+        // Layer 2: a duplicate that waited on the lock must get the first request's
+        // result, not "insufficient quantity" because that request already sold the shares.
+        var concurrent = await FindPreviousAsync(command, requestHash, cancellationToken);
+        if (concurrent is not null)
+        {
+            return concurrent; // leaving without Commit rolls the transaction back
+        }
+
         var available = holding?.Quantity ?? 0m;
         if (holding is null || command.Quantity > available)
         {
             throw new InsufficientQuantityException(command.Quantity, available);
         }
 
-        // Step 6: open lots, oldest first.
+        // Open lots, oldest first.
         var lots = await db.HoldingLots
             .Where(l => l.HoldingId == holding.Id && l.RemainingQuantity > 0m)
             .OrderBy(l => l.PurchasedAt)
             .ThenBy(l => l.Id)
             .ToListAsync(cancellationToken);
 
-        // Step 7: the pure FIFO logic from Phase 2.
+        // The pure FIFO logic from Phase 2.
         var fifo = FifoCalculator.Sell(
             lots.Select(l => new Lot(l.Id, l.OriginalQuantity, l.RemainingQuantity, l.PurchasePrice, l.PurchasedAt)).ToList(),
             command.Quantity,
             command.Price);
 
-        // Step 8: update the consumed lots (kept at 0 when fully used) and the holding.
         foreach (var consumption in fifo.Consumptions)
         {
             var lot = lots.Single(l => l.Id == consumption.LotId);
@@ -148,13 +211,11 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
         holding.Quantity -= command.Quantity;
         holding.UpdatedAt = now;
 
-        // Step 9: the trade record.
-        var trade = NewTrade(command, instrumentId.Value, TradeSide.Sell, now);
+        var trade = NewTrade(command, instrumentId.Value, TradeSide.Sell, now, requestHash, fifo.CostBasis);
         db.Trades.Add(trade);
 
-        // Step 10 (outbox event) arrives in Phase 6.
+        // The outbox event arrives in Phase 6.
 
-        // Step 11: commit everything together.
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
@@ -162,6 +223,54 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
             trade.Id, symbol, trade.Side, trade.Quantity, trade.Price, trade.ExecutedAt,
             fifo.CostBasis, fifo.RealizedProfitLoss);
     }
+
+    /// <summary>
+    /// Looks for an earlier trade with the same user and Idempotency-Key.
+    /// Same request: returns it as a replay. Different request: throws.
+    /// </summary>
+    private async Task<TradeExecuted?> FindPreviousAsync(
+        TradeCommand command, string requestHash, CancellationToken cancellationToken)
+    {
+        var row = await (
+                from t in db.Trades.AsNoTracking()
+                join i in db.Instruments on t.InstrumentId equals i.Id
+                where t.UserId == command.UserId && t.IdempotencyKey == command.IdempotencyKey
+                select new
+                {
+                    t.Id,
+                    i.Symbol,
+                    t.Side,
+                    t.Quantity,
+                    t.Price,
+                    t.ExecutedAt,
+                    t.CostBasis,
+                    t.RequestHash
+                })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        if (row.RequestHash != requestHash)
+        {
+            throw new IdempotencyKeyReuseException(command.IdempotencyKey);
+        }
+
+        decimal? realizedProfitLoss = row.CostBasis is null ? null : row.Quantity * row.Price - row.CostBasis;
+
+        return new TradeExecuted(
+            row.Id, row.Symbol, row.Side, row.Quantity, row.Price, row.ExecutedAt,
+            row.CostBasis, realizedProfitLoss, IsReplay: true);
+    }
+
+    private static bool IsIdempotencyKeyViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException
+        {
+            SqlState: PostgresErrorCodes.UniqueViolation,
+            ConstraintName: IdempotencyIndexName
+        };
 
     private static string Normalize(string symbol) => symbol.Trim().ToUpperInvariant();
 
@@ -172,7 +281,9 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
             .Select(i => (Guid?)i.Id)
             .FirstOrDefaultAsync(cancellationToken);
 
-    private static Trade NewTrade(TradeCommand command, Guid instrumentId, TradeSide side, DateTimeOffset now) => new()
+    private static Trade NewTrade(
+        TradeCommand command, Guid instrumentId, TradeSide side, DateTimeOffset now,
+        string requestHash, decimal? costBasis) => new()
     {
         Id = Guid.CreateVersion7(),
         UserId = command.UserId,
@@ -181,6 +292,8 @@ public sealed class TradeExecutor(TradeDbContext db) : ITradeExecutor
         Quantity = command.Quantity,
         Price = command.Price,
         ExecutedAt = now,
-        IdempotencyKey = command.IdempotencyKey
+        IdempotencyKey = command.IdempotencyKey,
+        RequestHash = requestHash,
+        CostBasis = costBasis
     };
 }

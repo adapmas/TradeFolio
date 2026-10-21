@@ -232,6 +232,10 @@ namespace TradeService.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<decimal?>("CostBasis")
+                        .HasColumnType("numeric(18,8)")
+                        .HasColumnName("cost_basis");
+
                     b.Property<DateTimeOffset>("ExecutedAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("executed_at");
@@ -253,6 +257,12 @@ namespace TradeService.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("Quantity")
                         .HasColumnType("numeric(18,8)")
                         .HasColumnName("quantity");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("request_hash");
 
                     b.Property<string>("Side")
                         .IsRequired()
@@ -281,6 +291,8 @@ namespace TradeService.Infrastructure.Persistence.Migrations
 
                     b.ToTable("trades", "trade", t =>
                         {
+                            t.HasCheckConstraint("ck_trades_cost_basis_non_negative", "cost_basis IS NULL OR cost_basis >= 0");
+
                             t.HasCheckConstraint("ck_trades_price_positive", "price > 0");
 
                             t.HasCheckConstraint("ck_trades_quantity_positive", "quantity > 0");
