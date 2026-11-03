@@ -1,3 +1,4 @@
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradeFolio.Common.Errors;
@@ -33,7 +34,7 @@ public static class TradeEndpoints
 
     public static IEndpointRouteBuilder MapTradeEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/trades").WithTags("Trades");
+        var group = app.MapGroup("/api/v1/trades").WithTags("Trades").RequireAuthorization();
 
         group.MapPost("/", CreateTrade)
             .AddEndpointFilter<ValidationFilter<CreateTradeRequest>>()
@@ -47,7 +48,7 @@ public static class TradeEndpoints
 
     private static async Task<IResult> CreateTrade(
         CreateTradeRequest? request,
-        [FromHeader(Name = "X-User-Id")] string? userIdHeader,
+        ClaimsPrincipal principal,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey,
         ITradeExecutor executor,
         HttpContext http,
@@ -55,9 +56,9 @@ public static class TradeEndpoints
     {
         ArgumentNullException.ThrowIfNull(request); // the validation filter already rejected a missing body
 
-        if (!CurrentUser.TryParse(userIdHeader, out var userId))
+        if (!CurrentUser.TryGetId(principal, out var userId))
         {
-            return CurrentUser.Missing(http);
+            return CurrentUser.Unauthorized(http);
         }
 
         // The Idempotency-Key header is required: it makes retries safe.
@@ -136,14 +137,14 @@ public static class TradeEndpoints
     private static async Task<IResult> ListTrades(
         int? page,
         int? pageSize,
-        [FromHeader(Name = "X-User-Id")] string? userIdHeader,
+        ClaimsPrincipal principal,
         TradeDbContext db,
         HttpContext http,
         CancellationToken ct)
     {
-        if (!CurrentUser.TryParse(userIdHeader, out var userId))
+        if (!CurrentUser.TryGetId(principal, out var userId))
         {
-            return CurrentUser.Missing(http);
+            return CurrentUser.Unauthorized(http);
         }
 
         var request = PageRequest.Create(page, pageSize);
@@ -168,14 +169,14 @@ public static class TradeEndpoints
 
     private static async Task<IResult> GetTrade(
         string id,
-        [FromHeader(Name = "X-User-Id")] string? userIdHeader,
+        ClaimsPrincipal principal,
         TradeDbContext db,
         HttpContext http,
         CancellationToken ct)
     {
-        if (!CurrentUser.TryParse(userIdHeader, out var userId))
+        if (!CurrentUser.TryGetId(principal, out var userId))
         {
-            return CurrentUser.Missing(http);
+            return CurrentUser.Unauthorized(http);
         }
 
         // Not a valid id, or somebody else's trade: both look exactly like "not found".

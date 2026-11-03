@@ -1,3 +1,4 @@
+﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TradeFolio.Common.Pagination;
@@ -30,7 +31,7 @@ public static class HoldingEndpoints
 {
     public static IEndpointRouteBuilder MapHoldingEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup("/api/v1/holdings").WithTags("Holdings");
+        var group = app.MapGroup("/api/v1/holdings").WithTags("Holdings").RequireAuthorization();
 
         group.MapGet("/", ListHoldings).WithName("ListHoldings");
 
@@ -40,14 +41,14 @@ public static class HoldingEndpoints
     private static async Task<IResult> ListHoldings(
         int? page,
         int? pageSize,
-        [FromHeader(Name = "X-User-Id")] string? userIdHeader,
+        ClaimsPrincipal principal,
         TradeDbContext db,
         HttpContext http,
         CancellationToken ct)
     {
-        if (!CurrentUser.TryParse(userIdHeader, out var userId))
+        if (!CurrentUser.TryGetId(principal, out var userId))
         {
-            return CurrentUser.Missing(http);
+            return CurrentUser.Unauthorized(http);
         }
 
         var request = PageRequest.Create(page, pageSize);

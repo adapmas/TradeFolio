@@ -62,7 +62,15 @@ prove the real, running application behaves the same way.
 
 \## Added by later tasks
 
+## 5.3 Ownership and isolation
 
+- [ ] Register and log in as Alice and Bob; build `$alice` and `$bob` header tables with each bearer token
+- [ ] Alice BUY via `POST /api/v1/trades` (with an `Idempotency-Key` header) returns 201
+- [ ] Alice `GET /api/v1/trades/{id}` returns her trade
+- [ ] Bob `GET /api/v1/trades/{id}` for Alice's trade returns 404
+- [ ] Bob's `GET /api/v1/trades` and `/api/v1/holdings` have `total` 0
+- [ ] `GET /api/v1/trades` with no token returns 401
+- [ ] Bob's token plus an `X-User-Id` header for Alice still returns only Bob's data
 
 (Each task adds its manual checks here as it is finished.)
 
