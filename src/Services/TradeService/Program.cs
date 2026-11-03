@@ -100,3 +100,4 @@ app.MapGet("/api/v1/ping/error", (HttpContext http) =>
 }).WithName("PingError");
 
 app.Run();
+public partial class Program { }

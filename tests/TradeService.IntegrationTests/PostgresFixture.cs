@@ -11,7 +11,12 @@ public sealed class PostgresFixture : IAsyncLifetime
     private readonly PostgreSqlContainer _container =
         new PostgreSqlBuilder("postgres:17").Build();
 
+    private TradeApiFactory? _api;
+
     public string ConnectionString => _container.GetConnectionString();
+
+    /// <summary>The real TradeService running in memory, created on first use.</summary>
+    public TradeApiFactory Api => _api ??= new TradeApiFactory(ConnectionString);
 
     public async Task InitializeAsync()
     {
@@ -21,7 +26,15 @@ public sealed class PostgresFixture : IAsyncLifetime
         await db.Database.MigrateAsync();
     }
 
-    public Task DisposeAsync() => _container.DisposeAsync().AsTask();
+    public async Task DisposeAsync()
+    {
+        if (_api is not null)
+        {
+            await _api.DisposeAsync();
+        }
+
+        await _container.DisposeAsync();
+    }
 
     public TradeDbContext CreateDbContext()
     {
