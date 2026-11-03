@@ -20,6 +20,7 @@ Phase 2: FIFO Accounting
  2.4 Documentation of FIFO algorithm
 Phases 3 to 12
 Not started. See the build plan for the full task list.
+AUTOMATED CHECKS DONE, MANUAL CHECKS LEFTOVER
 
 Decisions so far
 .NET SDK 10.0.402 pinned in global.json; solution file is TradeFolio.slnx.

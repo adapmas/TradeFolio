@@ -5,6 +5,7 @@ using TradeService.Api;
 using FluentValidation;
 using TradeService.Application;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,35 @@ builder.Services.AddScoped<IValidator<CreateTradeRequest>, CreateTradeRequestVal
 builder.Services.AddScoped<ITradeExecutor, TradeExecutor>();
 builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
 builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterRequestValidator>();
+var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
+var jwtOptions = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
+jwtOptions.Validate();   // fails at startup if the signing key is missing or weak
+builder.Services.Configure<JwtOptions>(jwtSection);
+
+builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<ITokenService, JwtTokenService>();
+builder.Services.AddScoped<IUserAuthenticator, UserAuthenticator>();
+builder.Services.AddScoped<IValidator<LoginRequest>, LoginRequestValidator>();
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.MapInboundClaims = false;   // keep "sub" as "sub"
+        options.TokenValidationParameters = jwtOptions.CreateValidationParameters();
+        options.Events = new JwtBearerEvents
+        {
+            // Missing, expired or tampered token: answer with the standard error shape.
+            OnChallenge = context =>
+            {
+                context.HandleResponse();
+                var http = context.HttpContext;
+                return ApiResults.Problem(http, ApiProblem.Unauthorized(http.TraceIdentifier)).ExecuteAsync(http);
+            }
+        };
+    });
+
+builder.Services.AddAuthorization();
 builder.Services.AddScoped<IUserRegistrar, UserRegistrar>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -34,11 +64,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapInstrumentEndpoints();
 app.MapTradeEndpoints();
 app.MapHoldingEndpoints();
 app.MapAuthEndpoints();
+app.MapUserEndpoints();
 
 app.MapGet("/api/v1/ping", () => Results.Ok(new { service = serviceName, status = "ok" }))
    .WithName("Ping");

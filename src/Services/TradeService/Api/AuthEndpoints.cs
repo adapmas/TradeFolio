@@ -5,6 +5,8 @@ namespace TradeService.Api;
 
 public sealed record RegisterResponse(Guid Id, string Email, DateTimeOffset CreatedAt);
 
+public sealed record LoginResponse(string AccessToken, string TokenType, int ExpiresIn, DateTimeOffset ExpiresAt);
+
 public static class AuthEndpoints
 {
     public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
@@ -14,6 +16,10 @@ public static class AuthEndpoints
         group.MapPost("/register", Register)
             .AddEndpointFilter<ValidationFilter<RegisterRequest>>()
             .WithName("Register");
+
+        group.MapPost("/login", Login)
+            .AddEndpointFilter<ValidationFilter<LoginRequest>>()
+            .WithName("Login");
 
         return app;
     }
@@ -37,5 +43,34 @@ public static class AuthEndpoints
         // Never return the hash.
         var response = new RegisterResponse(user.Id, user.Email, user.CreatedAt);
         return Results.Json(response, statusCode: StatusCodes.Status201Created);
+    }
+
+    private static async Task<IResult> Login(
+        LoginRequest? request,
+        IUserAuthenticator authenticator,
+        ITokenService tokens,
+        HttpContext http,
+        CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        var user = await authenticator.AuthenticateAsync(request.Email!, request.Password!, ct);
+
+        if (user is null)
+        {
+            // One answer for unknown email, wrong password and disabled account.
+            return ApiResults.Problem(http, new ApiProblem(
+                "https://api.tradefolio.local/errors/invalid-credentials",
+                "Invalid email or password",
+                StatusCodes.Status401Unauthorized,
+                http.TraceIdentifier));
+        }
+
+        var token = tokens.CreateAccessToken(user);
+
+        // Tokens must not be cached by browsers or proxies.
+        http.Response.Headers.CacheControl = "no-store";
+
+        return Results.Ok(new LoginResponse(token.Value, "Bearer", token.ExpiresInSeconds, token.ExpiresAt));
     }
 }
