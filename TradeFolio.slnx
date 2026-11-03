@@ -15,6 +15,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Common.UnitTests/Common.UnitTests.csproj" />
+    <Project Path="tests/Gateway.IntegrationTests/Gateway.IntegrationTests.csproj" />
     <Project Path="tests/TradeService.IntegrationTests/TradeService.IntegrationTests.csproj" />
     <Project Path="tests/TradeService.UnitTests/TradeService.UnitTests.csproj" />
   </Folder>

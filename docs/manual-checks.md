@@ -72,5 +72,13 @@ prove the real, running application behaves the same way.
 - [ ] `GET /api/v1/trades` with no token returns 401
 - [ ] Bob's token plus an `X-User-Id` header for Alice still returns only Bob's data
 
+## 5.5 Gateway and versioning
+
+- [ ] Run TradeService with `--urls http://localhost:5100` and the gateway with `--urls http://localhost:5080`, same `Jwt__SigningKey` in both
+- [ ] With `$base = "http://localhost:5080"`, repeat the 5.1 to 5.3 checks through the gateway; results must be identical
+- [ ] `GET /api/v1/instruments` returns a GUID in the `X-Correlation-Id` response header
+- [ ] A GUID sent as `X-Correlation-Id` is echoed back; the `traceId` in a 401 body equals it
+- [ ] `GET /api/v2/trades` returns 404
+
 (Each task adds its manual checks here as it is finished.)
 
