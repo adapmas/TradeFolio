@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using TradeFolio.Common.Correlation;
 using TradeFolio.Common.Errors;
 using TradeFolio.Common.Security;
+using TradeFolio.Gateway;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,6 +30,8 @@ builder.Services
         };
     });
 builder.Services.AddAuthorization();
+builder.Services.AddGatewayCors(builder.Configuration);
+builder.Services.AddGatewayRateLimiting();
 builder.Services.AddHealthChecks();
 builder.Services.AddReverseProxy().LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
 
@@ -53,7 +56,13 @@ app.Use(async (context, next) =>
     }
 });
 
+// Order matters:
+//  CORS first, so browser preflight requests are answered before authentication can refuse them;
+//  authentication before the limiter, so signed-in users get their own bucket;
+//  the limiter before authorization, so floods of token-less requests are limited too.
+app.UseCors();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");

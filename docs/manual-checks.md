@@ -80,5 +80,13 @@ prove the real, running application behaves the same way.
 - [ ] A GUID sent as `X-Correlation-Id` is echoed back; the `traceId` in a 401 body equals it
 - [ ] `GET /api/v2/trades` returns 404
 
+## 5.6 Rate limiting and CORS
+
+- [ ] 70 quick `GET $base/api/v1/instruments` calls through the gateway: about 60 return 200, the rest 429
+- [ ] 8 quick login attempts with a wrong password: five 401, then 429 with a `Retry-After` header
+- [ ] After the lockout (wait about a minute or restart the gateway), a correct login works again
+- [ ] A preflight from `http://localhost:5173` (`Invoke-WebRequest -Method Options` with `Origin`, `Access-Control-Request-Method: POST` headers) returns 204 with `Access-Control-Allow-Origin`
+- [ ] The same preflight from `http://evil.example` returns no `Access-Control-Allow-Origin`
+
 (Each task adds its manual checks here as it is finished.)
 
