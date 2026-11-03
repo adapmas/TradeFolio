@@ -1,7 +1,7 @@
-using System.Text;
+﻿using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
-namespace TradeService.Application;
+namespace TradeFolio.Common.Security;
 
 public sealed class JwtOptions
 {

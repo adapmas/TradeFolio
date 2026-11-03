@@ -1,3 +1,4 @@
+﻿using TradeFolio.Common.Security;
 using Microsoft.EntityFrameworkCore;
 using TradeFolio.Common.Errors;
 using TradeService.Infrastructure.Persistence;
@@ -7,6 +8,7 @@ using TradeService.Application;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.OpenApi;
+using TradeFolio.Common.Correlation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -69,6 +71,20 @@ builder.Services.AddSwaggerGen(options =>
 builder.Services.AddHealthChecks();
 
 var app = builder.Build();
+
+// Every request gets a correlation id: the caller's (if it is a valid GUID) or a new one.
+// It becomes the trace id in error responses and is echoed back in a response header.
+app.Use(async (context, next) =>
+{
+    var correlationId = CorrelationId.Resolve(context.Request.Headers[CorrelationId.HeaderName].ToString());
+    context.TraceIdentifier = correlationId;
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers[CorrelationId.HeaderName] = correlationId;
+        return Task.CompletedTask;
+    });
+    await next();
+});
 
 var serviceName = app.Configuration["Service:Name"] ?? "trade-service";
 app.Logger.LogInformation("Starting {ServiceName}", serviceName);

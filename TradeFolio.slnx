@@ -7,6 +7,9 @@
   <Folder Name="/src/BuildingBlocks/Contracts/">
     <Project Path="src/BuildingBlocks/Contracts/TradeFolio.Contracts.csproj" />
   </Folder>
+  <Folder Name="/src/Gateway/">
+    <Project Path="src/Gateway/TradeFolio.Gateway/TradeFolio.Gateway.csproj" />
+  </Folder>
   <Folder Name="/src/Services/">
     <Project Path="src/Services/TradeService/TradeService.csproj" />
   </Folder>

@@ -1,3 +1,4 @@
+﻿using TradeFolio.Common.Security;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
