@@ -37,7 +37,7 @@ public sealed class PostgresFixture : IAsyncLifetime
         await using var conn = new NpgsqlConnection(ConnectionString);
         await conn.OpenAsync();
         await using var cmd = new NpgsqlCommand(
-            "TRUNCATE TABLE trade.trades, trade.holding_lots, trade.holdings;", conn);
+            "TRUNCATE TABLE trade.trades, trade.holding_lots, trade.holdings, trade.users;", conn);
         await cmd.ExecuteNonQueryAsync();
     }
 }

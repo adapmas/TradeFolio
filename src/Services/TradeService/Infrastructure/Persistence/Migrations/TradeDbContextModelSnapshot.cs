@@ -301,6 +301,46 @@ namespace TradeService.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("TradeService.Infrastructure.Persistence.User", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("email");
+
+                    b.Property<string>("PasswordHash")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("password_hash");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email")
+                        .IsUnique()
+                        .HasDatabaseName("ux_users_email");
+
+                    b.ToTable("users", "trade", t =>
+                        {
+                            t.HasCheckConstraint("ck_users_status_valid", "status IN ('Active', 'Disabled')");
+                        });
+                });
+
             modelBuilder.Entity("TradeService.Infrastructure.Persistence.Holding", b =>
                 {
                     b.HasOne("TradeService.Infrastructure.Persistence.Instrument", null)

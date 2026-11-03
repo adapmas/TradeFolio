@@ -4,6 +4,7 @@ using TradeService.Infrastructure.Persistence;
 using TradeService.Api;
 using FluentValidation;
 using TradeService.Application;
+using Microsoft.AspNetCore.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,6 +16,9 @@ builder.Services.AddDbContext<TradeDbContext>(options => options.UseNpgsql(conne
 builder.Services.AddScoped<IInstrumentLookup, InstrumentLookup>();
 builder.Services.AddScoped<IValidator<CreateTradeRequest>, CreateTradeRequestValidator>();
 builder.Services.AddScoped<ITradeExecutor, TradeExecutor>();
+builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.AddScoped<IValidator<RegisterRequest>, RegisterRequestValidator>();
+builder.Services.AddScoped<IUserRegistrar, UserRegistrar>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
@@ -34,6 +38,7 @@ app.MapHealthChecks("/health");
 app.MapInstrumentEndpoints();
 app.MapTradeEndpoints();
 app.MapHoldingEndpoints();
+app.MapAuthEndpoints();
 
 app.MapGet("/api/v1/ping", () => Results.Ok(new { service = serviceName, status = "ok" }))
    .WithName("Ping");

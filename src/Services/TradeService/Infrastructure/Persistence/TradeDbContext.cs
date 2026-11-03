@@ -8,6 +8,7 @@ public sealed class TradeDbContext(DbContextOptions<TradeDbContext> options) : D
     public DbSet<Trade> Trades => Set<Trade>();
     public DbSet<Holding> Holdings => Set<Holding>();
     public DbSet<HoldingLot> HoldingLots => Set<HoldingLot>();
+    public DbSet<User> Users => Set<User>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
