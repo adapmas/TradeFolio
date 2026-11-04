@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Services\TradeService\TradeService.csproj" />
+    <ProjectReference Include="..\..\src\BuildingBlocks\Contracts\TradeFolio.Contracts.csproj" />
   </ItemGroup>
 
 </Project>
