@@ -95,5 +95,12 @@ prove the real, running application behaves the same way.
 - [ ] `GET /health` through the gateway has nosniff, frame-deny and referrer-policy headers, and no `Server` header
 - [ ] With PostgreSQL stopped, an authenticated `GET /api/v1/trades` returns 500 with only a trace id (restart PostgreSQL afterwards)
 
+## 6.2 Outbox in the same transaction
+
+- [ ] After one BUY through the gateway, `select event_id, event_type, created_at, published_at, attempts from outbox_messages order by created_at desc limit 5;` shows exactly one new row with `published_at` empty and `attempts` 0
+- [ ] The `payload` column of that row is valid JSON and matches spec section 11 (same fields, `executedAt` ending in Z)
+- [ ] A rejected oversell (SELL more than owned) adds no outbox row
+- [ ] Sending the same BUY twice with the same Idempotency-Key leaves exactly one trade row and one outbox row
+
 (Each task adds its manual checks here as it is finished.)
 
