@@ -156,3 +156,18 @@ scratch/
 tmp/
 *.local
 CLAUDE.md
+
+# environment files: ignore every variant except the committed template
+.env.*
+!.env.example
+
+# keys and certificates
+*.pem
+*.pfx
+*.key
+
+# Terraform (task 12.6): state files contain secrets in plain text
+*.tfstate
+*.tfstate.*
+.terraform/
+*.tfvars

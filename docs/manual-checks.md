@@ -88,5 +88,12 @@ prove the real, running application behaves the same way.
 - [ ] A preflight from `http://localhost:5173` (`Invoke-WebRequest -Method Options` with `Origin`, `Access-Control-Request-Method: POST` headers) returns 204 with `Access-Control-Allow-Origin`
 - [ ] The same preflight from `http://evil.example` returns no `Access-Control-Allow-Origin`
 
+## 5.7 Security hardening
+
+- [ ] A 100 KB request body to `POST /api/v1/auth/login` returns 413
+- [ ] Malformed JSON to login returns 400 in the standard shape, with no stack trace
+- [ ] `GET /health` through the gateway has nosniff, frame-deny and referrer-policy headers, and no `Server` header
+- [ ] With PostgreSQL stopped, an authenticated `GET /api/v1/trades` returns 500 with only a trace id (restart PostgreSQL afterwards)
+
 (Each task adds its manual checks here as it is finished.)
 

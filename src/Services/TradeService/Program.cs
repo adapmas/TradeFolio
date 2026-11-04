@@ -12,6 +12,19 @@ using TradeFolio.Common.Correlation;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Request limits: every request here is a small JSON body, and the server product name is not advertised.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = 64 * 1024;
+});
+
+// Bad requests (malformed JSON and the like) always reach the exception handler, in every environment,
+// so they come back in the standard error shape.
+builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 var connectionString = builder.Configuration.GetConnectionString("TradeDb")
     ?? throw new InvalidOperationException(
         "Connection string 'TradeDb' is missing. Set the ConnectionStrings__TradeDb environment variable.");
@@ -86,6 +99,8 @@ app.Use(async (context, next) =>
     await next();
 });
 
+app.UseExceptionHandler();
+
 var serviceName = app.Configuration["Service:Name"] ?? "trade-service";
 app.Logger.LogInformation("Starting {ServiceName}", serviceName);
 
@@ -104,16 +119,6 @@ app.MapHoldingEndpoints();
 app.MapAuthEndpoints();
 app.MapUserEndpoints();
 
-app.MapGet("/api/v1/ping", () => Results.Ok(new { service = serviceName, status = "ok" }))
-   .WithName("Ping");
-
-app.MapGet("/api/v1/ping/error", (HttpContext http) =>
-{
-    var problem = ApiProblem.Validation(
-        new Dictionary<string, string[]> { ["quantity"] = ["Quantity must be greater than zero."] },
-        http.TraceIdentifier);
-    return Results.Json(problem, contentType: "application/problem+json", statusCode: problem.Status);
-}).WithName("PingError");
-
 app.Run();
 public partial class Program { }
+

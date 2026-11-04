@@ -6,6 +6,12 @@ using TradeFolio.Gateway;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Request limits: every request here is a small JSON body, and the server product name is not advertised.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.AddServerHeader = false;
+    options.Limits.MaxRequestBodySize = 64 * 1024;
+});
 // Same rules as the services: the gateway rejects bad tokens early, the services check again.
 var jwtSection = builder.Configuration.GetSection(JwtOptions.SectionName);
 var jwtOptions = jwtSection.Get<JwtOptions>() ?? new JwtOptions();
@@ -54,6 +60,34 @@ app.Use(async (context, next) =>
     {
         await next();
     }
+});
+
+// Last-resort handler: any unexpected exception becomes a safe 500 with only the trace id.
+// (The middleware logs the exception itself, with the correlation id in scope.)
+app.UseExceptionHandler(errorApp => errorApp.Run(async context =>
+{
+    var problem = new ApiProblem(
+        "https://api.tradefolio.local/errors/internal",
+        "An unexpected error occurred",
+        StatusCodes.Status500InternalServerError,
+        context.TraceIdentifier);
+
+    await Results.Json(problem, contentType: "application/problem+json", statusCode: problem.Status)
+        .ExecuteAsync(context);
+}));
+
+// Basic hardening headers on every response (an API never needs to be framed or sniffed).
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        var headers = context.Response.Headers;
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["X-Frame-Options"] = "DENY";
+        headers["Referrer-Policy"] = "no-referrer";
+        return Task.CompletedTask;
+    });
+    await next();
 });
 
 // Order matters:
