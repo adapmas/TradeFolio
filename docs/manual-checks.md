@@ -102,5 +102,12 @@ prove the real, running application behaves the same way.
 - [ ] A rejected oversell (SELL more than owned) adds no outbox row
 - [ ] Sending the same BUY twice with the same Idempotency-Key leaves exactly one trade row and one outbox row
 
+## 6.3 RabbitMQ topology
+
+- [ ] After a fresh `docker compose up -d rabbitmq`, the management UI (http://localhost:15672) lists exchanges `tradefolio.events` (topic) and `tradefolio.events.dlx` (direct), both durable
+- [ ] Queues `notification.trade-completed` and `notification.trade-completed.dlq` exist, both durable, and the main queue shows a dead-letter exchange of `tradefolio.events.dlx`
+- [ ] Bindings: `tradefolio.events` routes `trade.completed` to the main queue, and `tradefolio.events.dlx` routes `trade.completed` to the DLQ
+- [ ] After `docker compose down -v` and `docker compose up -d rabbitmq`, the same topology is back without any manual step
+
 (Each task adds its manual checks here as it is finished.)
 

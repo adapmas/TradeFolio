@@ -1,0 +1,61 @@
+{
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "exchanges": [
+    {
+      "name": "tradefolio.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "tradefolio.events.dlx",
+      "vhost": "/",
+      "type": "direct",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "notification.trade-completed",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {
+        "x-dead-letter-exchange": "tradefolio.events.dlx"
+      }
+    },
+    {
+      "name": "notification.trade-completed.dlq",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "tradefolio.events",
+      "vhost": "/",
+      "destination": "notification.trade-completed",
+      "destination_type": "queue",
+      "routing_key": "trade.completed",
+      "arguments": {}
+    },
+    {
+      "source": "tradefolio.events.dlx",
+      "vhost": "/",
+      "destination": "notification.trade-completed.dlq",
+      "destination_type": "queue",
+      "routing_key": "trade.completed",
+      "arguments": {}
+    }
+  ]
+}
